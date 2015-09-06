@@ -505,17 +505,6 @@ int main(int argc, char **argv)
 			free(value);
 		}
 
-#if 0
-		snprintf(status, sizeof(status),
-			"^c%s^ [VOL %d%%] [CPU^f1^%s^f4^%s^f4^%s^f4^%s^f3^^c%s^] [W %d] [TEMP %d%cF] %s^c%s^ %s ",
-			fg_color, vol,
-			cpu_bar[0], cpu_bar[1], cpu_bar[2], cpu_bar[3],
-			fg_color, wifi,
-			temp, DEGREE_CHAR,
-			bat0
-			fg_color, datetime
-		);
-#endif
 		setStatus(dpy, (status = buffer));
 
 		if (argc > 1 && !strcasecmp(argv[1], "-d")) {
