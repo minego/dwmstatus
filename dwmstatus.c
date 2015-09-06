@@ -21,6 +21,7 @@
 #include <time.h>
 #include <string.h>
 #include <X11/Xlib.h>
+#include <mpd/client.h>
 
 #define COLOR_RED			"#FF0000"
 #define COLOR_WHITE			"#FFFFFF"
@@ -109,7 +110,7 @@ static int getBattery(void)
 		'C'		Charging
 		'\0'	error
 */
-static char getBatteryStatus()
+static char getBatteryStatus(void)
 {
 	FILE		*f;
 	char		status;
@@ -284,7 +285,7 @@ static char * getDateTime(char *format)
 	return(buf);
 }
 
-static int getTemperature()
+static int getTemperature(void)
 {
 	int		temp;
 	FILE	*f;
@@ -305,7 +306,7 @@ static int getTemperature()
 	return(temp);
 }
 
-static int getWifiPercent()
+static int getWifiPercent(void)
 {
 	int		percent = -1;
 	FILE	*f;
@@ -318,6 +319,44 @@ static int getWifiPercent()
 	fclose(f);
 
 	return(percent);
+}
+
+static int getMPDInfo(char *dest, size_t len)
+{
+    struct mpd_connection	*conn;
+    struct mpd_status		*status;
+    struct mpd_song			*song		= NULL;
+	int						r			= -1;
+
+    if (!(conn = mpd_connection_new(NULL, 0, 30000)) ||
+		mpd_connection_get_error(conn)
+	) {
+		return(-1);
+    }
+
+    mpd_command_list_begin(conn, true);
+    mpd_send_status(conn);
+    mpd_send_current_song(conn);
+    mpd_command_list_end(conn);
+
+	status = mpd_recv_status(conn);
+	if ((status) && (mpd_status_get_state(status) == MPD_STATE_PLAY)) {
+		mpd_response_next(conn);
+
+		song	= mpd_recv_song(conn);
+		snprintf(dest, len, " ^c%s^PLAYING^c%s^%s^f-2^^c%s^BY ^c%s^%s ",
+			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
+			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
+
+		mpd_song_free(song);
+
+		r = 0;
+	}
+
+	mpd_response_finish(conn);
+	mpd_connection_free(conn);
+
+	return(r);
 }
 
 int getScriptStr(char *path, char *dest, size_t size)
@@ -382,23 +421,23 @@ int main(int argc, char **argv)
 		status = buffer;
 		*status = '\0';
 
-/*
-		TODO MPD
-*/
-		/* Phone call */
+		/* Phone call or music */
 		if (!getScriptStr("dial what", line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"  ^c%s^%s", COLOR_RED, line);
 
 			if (!getScriptStr("dial who", line, sizeof(line))) {
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"^c%s^%s ", COLOR_WHITE, line);
+					"^c%s^%s", COLOR_WHITE, line);
 			}
+		} else if (!getMPDInfo(line, sizeof(line))) {
+				status += snprintf(status, sizeof(buffer) - (status - buffer),
+					"%s", line);
 		}
 
 		/* CPU label */
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"^c%s^CPU^c%s^^f1^", COLOR_RED, COLOR_WHITE);
+			" ^c%s^CPU^c%s^^f1^", COLOR_RED, COLOR_WHITE);
 
 		/* For each CPU (0 is average of all) */
 		count = getCPUUsage(cpuper);

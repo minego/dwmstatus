@@ -1,8 +1,8 @@
 CC				= gcc
 EXT				= .c
-LDFLAGS			= -lX11
-DEBUG_FLAGS		= -DDEBUG=1 -W -Wall -ansi -pedantic -g
-FLAGS			= -std=c99 -Wall
+LDFLAGS			= -lX11 -lmpdclient
+DEBUG_FLAGS		= -DDEBUG=1 -W -Wall -g
+FLAGS			= -std=c99 -Wall -DMPD
 FLAGS			+= ${DEBUG_FLAGS}
 PREFIX			= /usr/local
 MANPREFIX		= ${PREFIX}/share/man
