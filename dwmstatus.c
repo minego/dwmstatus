@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include <wchar.h>
 #include <unistd.h>
 #include <time.h>
@@ -67,7 +68,7 @@ static int hBarBordered(char *string, size_t size, int percent, int w, int h, ch
 	return(snprintf(string, size, format, border_color, y, w, h, tmp));
 }
 
-static void percentColor(char* string, int percent)
+static void percentColor(char *string, int percent)
 {
 	char		*format	= "#%X0%X000";
 	int			g		= (percent * 15) / 100;
@@ -103,11 +104,12 @@ static int getBattery(void)
 
 /*
 	Return:
-		1:		full or charging
-		0:		discharging
-		-1:		error
+		'D'		Discharging
+		'F'		Full
+		'C'		Charging
+		'\0'	error
 */
-static int getBatteryStatus()
+static char getBatteryStatus()
 {
 	FILE		*f;
 	char		status;
@@ -116,14 +118,11 @@ static int getBatteryStatus()
 		return(-1);
 	}
 
-	fread(&status, sizeof(char), 1, f);
-	fclose(f);
-
-	if (status == 'D') {
-		return(0);
-	} else {
-		return(1);
+	if (1 != fread(&status, sizeof(char), 1, f)) {
+		status = '\0';
 	}
+	fclose(f);
+	return(toupper(status));
 }
 
 static int getBatteryBar(char *string, size_t size, int w, int h)
@@ -136,14 +135,21 @@ static int getBatteryBar(char *string, size_t size, int w, int h)
 	char	fg_color[8];
 	char	tmp[128];
 
-	if (getBatteryStatus()) {
-		memcpy(fg_color, border_color, 8);
-	} else {
-		percentColor(fg_color, percent);
+	switch (getBatteryStatus()) {
+		case 'C':	/* Charging		*/
+		case 'F':	/* Full			*/
+			memcpy(fg_color, border_color, 8);
+			break;
+
+		case 'D':	/* Discharging	*/
+			percentColor(fg_color, percent);
+			break;
+
+		default:
+			return(-1);
 	}
 
 	hBarBordered(tmp, 128, percent, w - 2, h, fg_color, bg_color, border_color);
-
 	return(snprintf(string, size, format, tmp, border_color, w - 2, y, 2, 5, 2));
 }
 
@@ -351,9 +357,8 @@ int main(int argc, char **argv)
 	int			i, count;
 	int			cpuper[MAX_CPUS];
 	char		*value;
-	int			temp;
 	char		*status;
-	char		bat0[256];
+	char		line[1024];
 	char		buffer[4 * 1024];
 
 	if (!(dpy = XOpenDisplay(NULL))) {
@@ -362,18 +367,12 @@ int main(int argc, char **argv)
 	}
 
 	for (;;) {
-		temp		= getTemperature();
-
-		getBatteryBar(bat0, 256, 30, 11);
-
 		status = buffer;
 		*status = '\0';
 
 /*
 		// TODO ~/bin/dial what
 		// TODO ~/bin/dial who
-		// TODO TEMP
-		// TODO BATTERY (if present)
 */
 
 		/* CPU label */
@@ -401,12 +400,16 @@ int main(int argc, char **argv)
 		/* Volume */
 		value = vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666");
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			" ^c%s^VOL^f1^%s^f6^^c%s^", COLOR_RED, value, COLOR_WHITE);
+			" ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, value, COLOR_WHITE);
+
+		/* Temp */
+		if (0 < (i = getTemperature())) {
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				" ^c%s^TEMP^f1^^c%s^%d%cF^f4^ ", COLOR_RED, COLOR_WHITE, i, DEGREE_CHAR);
+		}
 
 		/* Wifi */
 		if (0 <= (count = getWifiPercent())) {
-			/* TODO Fix the background color */
-			/* TODO Fix the spacing */
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				" ^c%s^WIFI^c%s^^f1^", COLOR_RED, COLOR_WHITE);
 
@@ -424,6 +427,11 @@ int main(int argc, char **argv)
 			}
 		}
 
+		if (0 < getBatteryBar(line, 256, 25, 11)) {
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"  %s", line);
+		}
+
 		/* Date */
 		if ((value = getDateTime("%a %b %d"))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
@@ -434,7 +442,7 @@ int main(int argc, char **argv)
 		/* Time */
 		if ((value = getDateTime("%I:%M %p"))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^c%s^%s", COLOR_WHITE, value);
+				"^f-4^^c%s^%s", COLOR_WHITE, value);
 			free(value);
 		}
 
