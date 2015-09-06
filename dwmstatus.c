@@ -291,7 +291,6 @@ static int getTemperature(void)
 	FILE	*f;
 
 	if (!(f = fopen(TEMP_SENSOR_FILE, "r"))) {
-		fprintf(stderr, "Error opening temp1_input.\n");
 		return(-1);
 	}
 
