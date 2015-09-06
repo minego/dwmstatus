@@ -454,12 +454,12 @@ int main(int argc, char **argv)
 		/* MEM usage */
 		value = vBar((i = getMEMUsage()), 6, 15, "#FFFFFF", "#666666");
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^MEM^f1^%s^f6^^c%s^ %d%%", COLOR_RED, value, COLOR_WHITE, i);
+			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, value);
 
 		/* Volume */
 		value = vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666");
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			" ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, value, COLOR_WHITE);
+			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, value, COLOR_WHITE);
 
 		/* Temp */
 		if (0 < (i = getTemperature())) {
