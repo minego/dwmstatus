@@ -256,7 +256,7 @@ static int getMEMUsage(void)
 		return(0);
 	}
 
-	return((availkb * 100) / totalkb);
+	return(((totalkb - availkb) * 100) / totalkb);
 }
 
 static char * getDateTime(char *format)
