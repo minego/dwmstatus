@@ -323,15 +323,27 @@ static int getWifiPercent()
 int getScriptStr(char *path, char *dest, size_t size)
 {
 	FILE		*f;
+	size_t		len;
 
 	if (!(f = popen(path, "r"))) {
 		return(-1);
 	}
 
+	*dest = '\0';
 	fgets(dest, size, f);
 	fclose(f);
 
-	return(0);
+	len = strlen(dest);
+	while (len > 0 && isspace(dest[len - 1])) {
+		dest[--len] = '\0';
+	}
+
+
+	if (*dest) {
+		return(0);
+	} else {
+		return(-1);
+	}
 }
 
 int getScriptPercentage(char *path)
@@ -371,9 +383,18 @@ int main(int argc, char **argv)
 		*status = '\0';
 
 /*
-		// TODO ~/bin/dial what
-		// TODO ~/bin/dial who
+		TODO MPD
 */
+		/* Phone call */
+		if (!getScriptStr("dial what", line, sizeof(line))) {
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"  ^c%s^%s", COLOR_RED, line);
+
+			if (!getScriptStr("dial who", line, sizeof(line))) {
+				status += snprintf(status, sizeof(buffer) - (status - buffer),
+					"^c%s^%s ", COLOR_WHITE, line);
+			}
+		}
 
 		/* CPU label */
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
