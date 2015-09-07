@@ -34,9 +34,8 @@
 #define BAT_STATUS_FILE		"/sys/class/power_supply/BAT0/status"
 #define TEMP_SENSOR_FILE	"/sys/class/hwmon/hwmon1/temp1_input"
 
-static char *vBar(int percent, int w, int h, char *fg_color, char *bg_color)
+static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
 {
-	char		*value;
 	char		*format		= "^c%s^^r0,%d,%d,%d^^c%s^^r0,%d,%d,%d^";
 	int			bar_height	= (percent * h) / 100;
 	int			y			= (BAR_HEIGHT - h) / 2;
@@ -47,13 +46,7 @@ static char *vBar(int percent, int w, int h, char *fg_color, char *bg_color)
 		percent = 0;
 	}
 
-	if (!(value = (char*) malloc(sizeof(char) * 128))) {
-		fprintf(stderr, "Cannot allocate memory for buf.\n");
-		exit(1);
-	}
-
-	snprintf(value, 128, format, bg_color, y, w, h, fg_color, y + h - bar_height, w, bar_height);
-	return(value);
+	return(snprintf(dest, size, format, bg_color, y, w, h, fg_color, y + h - bar_height, w, bar_height));
 }
 
 static void percentColor(char *string, int percent)
@@ -116,7 +109,6 @@ static int getBatteryBar(char *dest, size_t size)
 	int		r;
 	int		percent			= getBattery();
 	char	fg_color[8];
-	char	*value;
 
 	switch (getBatteryStatus()) {
 		case 'C':	/* Charging		*/
@@ -132,9 +124,7 @@ static int getBatteryBar(char *dest, size_t size)
 			return(-1);
 	}
 
-	value = vBar(percent, 10, 15, fg_color, "#666666");
-	r = snprintf(dest, size, "%s", value);
-	free(value);
+	r = vBar(percent, 10, 15, fg_color, "#666666", dest, size);
 
 	/* Cover over the top bits so it looks like a battery */
 	r += snprintf(dest + r, size - r, "^c#222222^^r0,0,3,2^^r7,0,3,2^");
@@ -156,6 +146,43 @@ static int getWifiPercent(void)
 	fclose(f);
 
 	return(percent);
+}
+
+int getScriptStr(char *path, char *dest, size_t size)
+{
+	FILE		*f;
+	size_t		len;
+
+	if (!(f = popen(path, "r"))) {
+		return(-1);
+	}
+
+	*dest = '\0';
+	fgets(dest, size, f);
+	fclose(f);
+
+	len = strlen(dest);
+	while (len > 0 && isspace(dest[len - 1])) {
+		dest[--len] = '\0';
+	}
+
+
+	if (*dest) {
+		return(0);
+	} else {
+		return(-1);
+	}
+}
+
+int getScriptPercentage(char *path)
+{
+	char	line[1024];
+
+	if (!getScriptStr(path, line, sizeof(line))) {
+		return(atoi(line));
+	}
+
+	return(-1);
 }
 
 static int getWifiBar(char *dest, size_t size)
@@ -300,29 +327,22 @@ static int getMEMUsage(void)
 	return(((totalkb - availkb) * 100) / totalkb);
 }
 
-static char * getDateTime(char *format)
+static char * getDateTime(char *format, char *dest, size_t size)
 {
 	time_t		result		= time(NULL);
 	struct tm	*resulttm	= localtime(&result);
-	size_t		size		= 64;
-	char		*buf;
-
-	if (!(buf = malloc(size + 1))) {
-		fprintf(stderr, "Cannot allocate memory for buf.\n");
-		exit(1);
-	}
 
 	if (!resulttm) {
 		fprintf(stderr, "Error getting localtime.\n");
 		exit(1);
 	}
 
-	if (!strftime(buf, size, format, resulttm)) {
+	if (!strftime(dest, size, format, resulttm)) {
 		fprintf(stderr, "strftime is 0.\n");
 		exit(1);
 	}
 
-	return(buf);
+	return(0);
 }
 
 static int getTemperature(void)
@@ -383,43 +403,6 @@ static int getMPDInfo(char *dest, size_t len)
 	return(r);
 }
 
-int getScriptStr(char *path, char *dest, size_t size)
-{
-	FILE		*f;
-	size_t		len;
-
-	if (!(f = popen(path, "r"))) {
-		return(-1);
-	}
-
-	*dest = '\0';
-	fgets(dest, size, f);
-	fclose(f);
-
-	len = strlen(dest);
-	while (len > 0 && isspace(dest[len - 1])) {
-		dest[--len] = '\0';
-	}
-
-
-	if (*dest) {
-		return(0);
-	} else {
-		return(-1);
-	}
-}
-
-int getScriptPercentage(char *path)
-{
-	char	line[1024];
-
-	if (!getScriptStr(path, line, sizeof(line))) {
-		return(atoi(line));
-	}
-
-	return(-1);
-}
-
 static void setStatus(Display *dpy, char *str)
 {
 	XStoreName(dpy, DefaultRootWindow(dpy), str);
@@ -431,7 +414,6 @@ int main(int argc, char **argv)
 	Display		*dpy;
 	int			i, count;
 	int			cpuper[MAX_CPUS];
-	char		*value;
 	char		*status;
 	char		line[2 * 1024];
 	char		buffer[4 * 1024];
@@ -470,23 +452,20 @@ int main(int argc, char **argv)
 				break;
 			}
 
-			value = vBar(cpuper[i], 4, 15, "#FFFFFF", "#666666");
+			vBar(cpuper[i], 4, 15, "#FFFFFF", "#666666", line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"%s^f5^", value);
-			free(value);
+				"%s^f5^", line);
 		}
 
 		/* MEM usage */
-		value = vBar((i = getMEMUsage()), 6, 15, "#FFFFFF", "#666666");
+		vBar((i = getMEMUsage()), 6, 15, "#FFFFFF", "#666666", line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, value);
-		free(value);
+			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, line);
 
 		/* Volume */
-		value = vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666");
+		vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666", line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, value, COLOR_WHITE);
-		free(value);
+			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, line, COLOR_WHITE);
 
 		/* Temp */
 		if (0 < (i = getTemperature())) {
@@ -507,17 +486,15 @@ int main(int argc, char **argv)
 		}
 
 		/* Date */
-		if ((value = getDateTime("%a %b %d"))) {
+		if (!getDateTime("%a %b %d", line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^%s", COLOR_RED, value);
-			free(value);
+				" ^c%s^%s", COLOR_RED, line);
 		}
 
 		/* Time */
-		if ((value = getDateTime("%I:%M %p"))) {
+		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^f-4^^c%s^%s", COLOR_WHITE, value);
-			free(value);
+				"^f-4^^c%s^%s", COLOR_WHITE, line);
 		}
 
 		setStatus(dpy, (status = buffer));
