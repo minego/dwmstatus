@@ -82,16 +82,14 @@ static int getBattery(void)
 {
 	FILE		*f;
 	int			energy_now;
-	static int	energy_full		= -1;
+	int			energy_full;
 
-	if (energy_full == -1) {
-		if (!(f = fopen(BAT_FULL_FILE, "r"))) {
-			return -1;
-		}
-
-		fscanf(f, "%d", &energy_full);
-		fclose(f);
+	if (!(f = fopen(BAT_FULL_FILE, "r"))) {
+		return -1;
 	}
+
+	fscanf(f, "%d", &energy_full);
+	fclose(f);
 
 	if (!(f = fopen(BAT_NOW_FILE, "r"))) {
 		return -1;
