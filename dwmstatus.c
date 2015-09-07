@@ -41,6 +41,12 @@ static char *vBar(int percent, int w, int h, char *fg_color, char *bg_color)
 	int			bar_height	= (percent * h) / 100;
 	int			y			= (BAR_HEIGHT - h) / 2;
 
+	if (percent > 100) {
+		percent = 100;
+	} else if (percent < 0) {
+		percent = 0;
+	}
+
 	if (!(value = (char*) malloc(sizeof(char) * 128))) {
 		fprintf(stderr, "Cannot allocate memory for buf.\n");
 		exit(1);
@@ -48,25 +54,6 @@ static char *vBar(int percent, int w, int h, char *fg_color, char *bg_color)
 
 	snprintf(value, 128, format, bg_color, y, w, h, fg_color, y + h - bar_height, w, bar_height);
 	return(value);
-}
-
-static int hBar(char *string, size_t size, int percent, int w, int h, char *fg_color, char *bg_color)
-{
-	char		*format		= "^c%s^^r0,%d,%d,%d^^c%s^^r%d,%d,%d,%d^";
-	int			bar_width	= (percent * w) / 100;
-	int			y = (BAR_HEIGHT - h) / 2;
-
-	return(snprintf(string, size, format, fg_color, y, bar_width, h, bg_color, bar_width, y, w - bar_width, h));
-}
-
-static int hBarBordered(char *string, size_t size, int percent, int w, int h, char *fg_color, char *bg_color, char *border_color)
-{
-	char		*format		= "^c%s^^r0,%d,%d,%d^^f1^%s";
-	int			y			= (BAR_HEIGHT - h)/2;
-	char		tmp[128];
-
-	hBar(tmp, 128, percent, w - 2, h - 2, fg_color, bg_color);
-	return(snprintf(string, size, format, border_color, y, w, h, tmp));
 }
 
 static void percentColor(char *string, int percent)
@@ -124,20 +111,17 @@ static char getBatteryStatus(void)
 	return(toupper(status));
 }
 
-static int getBatteryBar(char *string, size_t size, int w, int h)
+static int getBatteryBar(char *dest, size_t size)
 {
+	int		r;
 	int		percent			= getBattery();
-	int		y				= (BAR_HEIGHT - 5) / 2;
-	char	*bg_color		= "#444444";
-	char	*border_color	= "#EEEEEE";
-	char	*format			= "%s^c%s^^f%d^^r0,%d,%d,%d^^f%d^";
 	char	fg_color[8];
-	char	tmp[128];
+	char	*value;
 
 	switch (getBatteryStatus()) {
 		case 'C':	/* Charging		*/
 		case 'F':	/* Full			*/
-			memcpy(fg_color, border_color, 8);
+			strcpy(fg_color, "#FFFFFF");
 			break;
 
 		case 'D':	/* Discharging	*/
@@ -148,8 +132,66 @@ static int getBatteryBar(char *string, size_t size, int w, int h)
 			return(-1);
 	}
 
-	hBarBordered(tmp, 128, percent, w - 2, h, fg_color, bg_color, border_color);
-	return(snprintf(string, size, format, tmp, border_color, w - 2, y, 2, 5, 2));
+	value = vBar(percent, 10, 15, fg_color, "#666666");
+	r = snprintf(dest, size, "%s", value);
+	free(value);
+
+	/* Cover over the top bits so it looks like a battery */
+	r += snprintf(dest + r, size - r, "^c#222222^^r0,0,3,2^^r7,0,3,2^");
+	r += snprintf(dest + r, size - r, "^f10^");
+
+	return(r);
+}
+
+static int getWifiPercent(void)
+{
+	int		percent = -1;
+	FILE	*f;
+
+	if (!(f = fopen("/proc/net/wireless", "r"))) {
+		return(-1);
+	}
+
+	fscanf(f, "%*[^\n]\n%*[^\n]\n%*s %*[0-9] %d", &percent);
+	fclose(f);
+
+	return(percent);
+}
+
+static int getWifiBar(char *dest, size_t size)
+{
+	float	step			= (100.0F / 15.0F);
+	int		r				= 0;
+	int		percent			= getWifiPercent();
+	int		i;
+
+	if (percent < 0) {
+		return(-1);
+	}
+
+	r = 0;
+	*dest = '\0';
+
+	/* Show 15 bars, each on if the value is high enough. */
+	r += snprintf(dest + r, size -r, "^c#FFFFFF^");
+	for (i = 1; i <= 15; i++) {
+		if (i * step > percent) {
+			break;
+		}
+
+		r += snprintf(dest + r, size -r, "^r%d,%d,1,%d^",
+			i - 1, 15 - (i - 1), i);
+	}
+
+	r += snprintf(dest + r, size -r, "^c#666666^");
+	for (; i <= 15; i++) {
+		r += snprintf(dest + r, size -r, "^r%d,%d,1,%d^",
+			i - 1, 15 - (i - 1), i);
+	}
+
+	r += snprintf(dest + r, size -r, "^f15^");
+
+	return(r);
 }
 
 /* Return the number of cpus detected */
@@ -303,21 +345,6 @@ static int getTemperature(void)
 	return(temp);
 }
 
-static int getWifiPercent(void)
-{
-	int		percent = -1;
-	FILE	*f;
-
-	if (!(f = fopen("/proc/net/wireless", "r"))) {
-		return(-1);
-	}
-
-	fscanf(f, "%*[^\n]\n%*[^\n]\n%*s %*[0-9] %d", &percent);
-	fclose(f);
-
-	return(percent);
-}
-
 static int getMPDInfo(char *dest, size_t len)
 {
     struct mpd_connection	*conn;
@@ -406,7 +433,7 @@ int main(int argc, char **argv)
 	int			cpuper[MAX_CPUS];
 	char		*value;
 	char		*status;
-	char		line[1024];
+	char		line[2 * 1024];
 	char		buffer[4 * 1024];
 
 	if (!(dpy = XOpenDisplay(NULL))) {
@@ -453,11 +480,13 @@ int main(int argc, char **argv)
 		value = vBar((i = getMEMUsage()), 6, 15, "#FFFFFF", "#666666");
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, value);
+		free(value);
 
 		/* Volume */
 		value = vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666");
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, value, COLOR_WHITE);
+		free(value);
 
 		/* Temp */
 		if (0 < (i = getTemperature())) {
@@ -466,25 +495,13 @@ int main(int argc, char **argv)
 		}
 
 		/* Wifi */
-		if (0 <= (count = getWifiPercent())) {
+		if (0 < getWifiBar(line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^WIFI^c%s^^f1^", COLOR_RED, COLOR_WHITE);
-
-			/* Show 5 bars, each on if the value is high enough... */
-			for (i = 1; i <= 5; i++) {
-				if (count + 5 >= (20 * i)) {
-					value = vBar(20 * i, 5, 15, "#FFFFFF", "#222222");
-				} else {
-					value = vBar(20 * i, 5, 15, "#666666", "#222222");
-				}
-
-				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"%s^f6^", value);
-				free(value);
-			}
+				" %s", line);
 		}
 
-		if (0 < getBatteryBar(line, 256, 25, 11)) {
+		/* Battery */
+		if (0 < getBatteryBar(line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"  %s", line);
 		}
