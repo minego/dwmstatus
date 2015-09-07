@@ -25,6 +25,8 @@
 
 #define COLOR_RED			"#FF0000"
 #define COLOR_WHITE			"#FFFFFF"
+#define COLOR_GREY			"#666666"
+#define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
 
 #define MAX_CPUS			32
@@ -113,7 +115,7 @@ static int getBatteryBar(char *dest, size_t size)
 	switch (getBatteryStatus()) {
 		case 'C':	/* Charging		*/
 		case 'F':	/* Full			*/
-			strcpy(fg_color, "#FFFFFF");
+			strcpy(fg_color, COLOR_WHITE);
 			break;
 
 		case 'D':	/* Discharging	*/
@@ -124,10 +126,10 @@ static int getBatteryBar(char *dest, size_t size)
 			return(-1);
 	}
 
-	r = vBar(percent, 10, 15, fg_color, "#666666", dest, size);
+	r = vBar(percent, 10, 15, fg_color, COLOR_GREY, dest, size);
 
 	/* Cover over the top bits so it looks like a battery */
-	r += snprintf(dest + r, size - r, "^c#222222^^r0,0,3,2^^r7,0,3,2^");
+	r += snprintf(dest + r, size - r, "^c" COLOR_DGREY "^^r0,0,3,2^^r7,0,3,2^");
 	r += snprintf(dest + r, size - r, "^f10^");
 
 	return(r);
@@ -200,7 +202,7 @@ static int getWifiBar(char *dest, size_t size)
 	*dest = '\0';
 
 	/* Show 15 bars, each on if the value is high enough. */
-	r += snprintf(dest + r, size -r, "^c#FFFFFF^");
+	r += snprintf(dest + r, size -r, "^c" COLOR_WHITE "^");
 	for (i = 1; i <= 15; i++) {
 		if (i * step > percent) {
 			break;
@@ -210,7 +212,7 @@ static int getWifiBar(char *dest, size_t size)
 			i - 1, 15 - (i - 1), i);
 	}
 
-	r += snprintf(dest + r, size -r, "^c#666666^");
+	r += snprintf(dest + r, size -r, "^c" COLOR_GREY "^");
 	for (; i <= 15; i++) {
 		r += snprintf(dest + r, size -r, "^r%d,%d,1,%d^",
 			i - 1, 15 - (i - 1), i);
@@ -452,18 +454,18 @@ int main(int argc, char **argv)
 				break;
 			}
 
-			vBar(cpuper[i], 4, 15, "#FFFFFF", "#666666", line, sizeof(line));
+			vBar(cpuper[i], 4, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s^f5^", line);
 		}
 
 		/* MEM usage */
-		vBar((i = getMEMUsage()), 6, 15, "#FFFFFF", "#666666", line, sizeof(line));
+		vBar((i = getMEMUsage()), 6, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, line);
 
 		/* Volume */
-		vBar((i = getScriptPercentage("volume.sh")), 6, 15, "#FFFFFF", "#666666", line, sizeof(line));
+		vBar((i = getScriptPercentage("volume.sh")), 6, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, line, COLOR_WHITE);
 
