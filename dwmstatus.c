@@ -405,6 +405,29 @@ static int getMPDInfo(char *dest, size_t len)
 	return(r);
 }
 
+static int getVolumeBar(char *dest, size_t len)
+{
+	int		r;
+	int		volume	= 0;
+	int		muted	= 0;
+
+	if (getScriptStr("volume.sh", dest, len)) {
+		*dest = '\0';
+		return(-1);
+	}
+	volume = atoi(dest);
+
+	if (strchr(dest, 'M')) {
+		muted = 1;
+	}
+
+	r = 0;
+	r += snprintf(dest + r, len - r, "  ^c%s^VOL^f1^", COLOR_RED);
+	r += vBar(volume, 6, 15, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
+	r += snprintf(dest + r, len - r, "^f6^^c%s^^f8^", COLOR_WHITE);
+	return(r);
+}
+
 static void setStatus(Display *dpy, char *str)
 {
 	XStoreName(dpy, DefaultRootWindow(dpy), str);
@@ -465,9 +488,10 @@ int main(int argc, char **argv)
 			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, line);
 
 		/* Volume */
-		vBar((i = getScriptPercentage("volume.sh")), 6, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
-		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^VOL^f1^%s^f6^^c%s^^f8^", COLOR_RED, line, COLOR_WHITE);
+		if (0 < getVolumeBar(line, sizeof(line))) {
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"%s", line);
+		}
 
 		/* Temp */
 		if (0 < (i = getTemperature())) {
