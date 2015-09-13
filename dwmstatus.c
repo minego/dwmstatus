@@ -422,8 +422,8 @@ static int getVolumeBar(char *dest, size_t len)
 	}
 
 	r = 0;
-	r += snprintf(dest + r, len - r, "  ^c%s^VOL^f1^", COLOR_RED);
-	r += vBar(volume, 6, 15, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
+	r += snprintf(dest + r, len - r, "  ^c%s^VOL ^f1^", COLOR_RED);
+	r += vBar(volume, 6, BAR_HEIGHT, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
 	r += snprintf(dest + r, len - r, "^f6^^c%s^^f8^", COLOR_WHITE);
 	return(r);
 }
@@ -468,7 +468,7 @@ int main(int argc, char **argv)
 
 		/* CPU label */
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			" ^c%s^CPU^c%s^^f1^", COLOR_RED, COLOR_WHITE);
+			" ^c%s^CPU ^c%s^^f1^", COLOR_RED, COLOR_WHITE);
 
 		/* For each CPU (0 is average of all) */
 		count = getCPUUsage(cpuper);
@@ -477,15 +477,15 @@ int main(int argc, char **argv)
 				break;
 			}
 
-			vBar(cpuper[i], 4, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			vBar(cpuper[i], 4, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s^f5^", line);
 		}
 
 		/* MEM usage */
-		vBar((i = getMEMUsage()), 6, 15, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+		vBar((i = getMEMUsage()), 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^MEM^f1^%s^f6^", COLOR_RED, line);
+			"  ^c%s^MEM ^f1^%s^f6^", COLOR_RED, line);
 
 		/* Volume */
 		if (0 < getVolumeBar(line, sizeof(line))) {
@@ -496,7 +496,7 @@ int main(int argc, char **argv)
 		/* Temp */
 		if (0 < (i = getTemperature())) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^TEMP^f1^^c%s^%d%cF^f4^ ", COLOR_RED, COLOR_WHITE, i, DEGREE_CHAR);
+				" ^c%s^TEMP ^f1^^c%s^%d%cF^f4^ ", COLOR_RED, COLOR_WHITE, i, DEGREE_CHAR);
 		}
 
 		/* Wifi */
@@ -514,13 +514,13 @@ int main(int argc, char **argv)
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^%s", COLOR_RED, line);
+				"  ^c%s^%s", COLOR_RED, line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^f-4^^c%s^%s", COLOR_WHITE, line);
+				"  ^c%s^%s", COLOR_WHITE, line);
 		}
 
 		setStatus(dpy, (status = buffer));
