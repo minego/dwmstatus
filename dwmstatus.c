@@ -389,7 +389,7 @@ static int getMPDInfo(char *dest, size_t len)
 	if ((status) && (mpd_status_get_state(status) == MPD_STATE_PLAY)) {
 		mpd_response_next(conn);
 
-		song	= mpd_recv_song(conn);
+		song = mpd_recv_song(conn);
 		snprintf(dest, len, " ^c%s^PLAYING^c%s^%s^f-2^^c%s^BY ^c%s^%s ",
 			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
 			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
