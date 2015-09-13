@@ -438,6 +438,7 @@ int main(int argc, char **argv)
 {
 	Display		*dpy;
 	int			i, count;
+	size_t		curwidth, lastwidth = 0, padding;
 	int			cpuper[MAX_CPUS];
 	char		*status;
 	char		line[2 * 1024];
@@ -523,7 +524,22 @@ int main(int argc, char **argv)
 				"   ^c%s^%s", COLOR_WHITE, line);
 		}
 
+		curwidth = status - buffer;
+		if (lastwidth > curwidth) {
+			/* Pad with spaces if the last status was longer */
+			padding = lastwidth - curwidth;
+
+			if (curwidth + padding + 1 > sizeof(buffer)) {
+				padding = sizeof(buffer) - (curwidth + 1);
+			}
+
+			memmove(buffer + padding, buffer, curwidth + 1);
+			memset(buffer, ' ', padding);
+		}
+
 		setStatus(dpy, (status = buffer));
+		lastwidth = curwidth;
+
 
 		if (argc > 1 && !strcasecmp(argv[1], "-d")) {
 			printf("STATUS: %s\n", status);
