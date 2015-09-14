@@ -460,7 +460,7 @@ int main(int argc, char **argv)
 
 			if (!getScriptStr("dial who", line, sizeof(line))) {
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"^c%s^%s", COLOR_WHITE, line);
+					"  ^c%s^%s", COLOR_WHITE, line);
 			}
 		} else if (!getMPDInfo(line, sizeof(line))) {
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
