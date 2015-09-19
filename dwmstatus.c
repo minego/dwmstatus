@@ -35,6 +35,7 @@
 #define BAT_FULL_FILE		"/sys/class/power_supply/BAT0/charge_full"
 #define BAT_STATUS_FILE		"/sys/class/power_supply/BAT0/status"
 #define TEMP_SENSOR_FILE	"/sys/class/hwmon/hwmon1/temp1_input"
+#define TEMP_SENSOR_F		"/sys/class/hwmon/hwmon%d/temp%d_"
 
 static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
 {
@@ -126,7 +127,7 @@ static int getBatteryBar(char *dest, size_t size)
 			return(-1);
 	}
 
-	r = vBar(percent, 10, 15, fg_color, COLOR_GREY, dest, size);
+	r = vBar(percent, 10, BAR_HEIGHT, fg_color, COLOR_GREY, dest, size);
 
 	/* Cover over the top bits so it looks like a battery */
 	r += snprintf(dest + r, size - r, "^c" COLOR_DGREY "^^r0,0,3,2^^r7,0,3,2^");
@@ -367,6 +368,31 @@ static int getTemperature(void)
 	return(temp);
 }
 
+static int getTempBar(int x, int y, char *dest, size_t len)
+{
+	int		temp;
+	int		max;
+	FILE	*f;
+
+	snprintf(dest, len, TEMP_SENSOR_F "input", x, y);
+	if (!(f = fopen(dest, "r"))) {
+		return(-1);
+	}
+
+	fscanf(f, "%d", &temp);
+	fclose(f);
+
+	snprintf(dest, len, TEMP_SENSOR_F "max", x, y);
+	if (!(f = fopen(dest, "r"))) {
+		return(-1);
+	}
+
+	fscanf(f, "%d", &max);
+	fclose(f);
+
+	return(vBar((temp * 100) / max, 2, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, dest, len));
+}
+
 static int getMPDInfo(char *dest, size_t len)
 {
     struct mpd_connection	*conn;
@@ -437,7 +463,7 @@ static void setStatus(Display *dpy, char *str)
 int main(int argc, char **argv)
 {
 	Display		*dpy;
-	int			i, count;
+	int			i, x, y, count;
 	size_t		curwidth, lastwidth = 0, padding;
 	int			cpuper[MAX_CPUS];
 	char		*status;
@@ -494,10 +520,31 @@ int main(int argc, char **argv)
 				"%s", line);
 		}
 
+#if 0
 		/* Temp */
 		if (0 < (i = getTemperature())) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				" ^c%s^TEMP  ^f1^^c%s^%d%cF^f4^ ", COLOR_RED, COLOR_WHITE, i, DEGREE_CHAR);
+		}
+#endif
+
+		/* Temperature */
+		status += snprintf(status, sizeof(buffer) - (status - buffer),
+			" ^c%s^TEMP  ", COLOR_RED);
+		for (x = 0; ; x++) {
+			for (y = 1; ; y++) {
+				i = getTempBar(x, y, line, sizeof(line));
+				if (i < 0) {
+					break;
+				}
+
+				status += snprintf(status, sizeof(buffer) - (status - buffer),
+					"%s^f3^", line);
+			}
+
+			if (i < 0 && y <= 1) {
+				break;
+			}
 		}
 
 		/* Wifi */
