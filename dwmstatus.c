@@ -384,6 +384,10 @@ static int getTempBar(int x, int y, char *dest, size_t len)
 
 	snprintf(dest, len, TEMP_SENSOR_F "max", x, y);
 	if (!(f = fopen(dest, "r"))) {
+		snprintf(dest, len, TEMP_SENSOR_F "crit", x, y);
+		f = fopen(dest, "r");
+	}
+	if (!f) {
 		return(-1);
 	}
 
