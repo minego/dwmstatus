@@ -231,11 +231,11 @@ static int getCPUUsage(int *cpuper)
 	size_t		len		= 0;
 	char		*line	= NULL;
 	int			count	= 0;
-	int			i;
+	int			i, x;
 	long int	idle_time, other_time;
 	char		cpu_name[32];
-	static int	new_cpu_usage[MAX_CPUS][4];
-	static int	old_cpu_usage[MAX_CPUS][4];
+	static int	new_cpu_usage[MAX_CPUS][7];
+	static int	old_cpu_usage[MAX_CPUS][7];
 
 	if (!(f = fopen("/proc/stat", "r"))) {
 		return(-1);
@@ -249,12 +249,15 @@ static int getCPUUsage(int *cpuper)
 			break;
 		}
 
-		if (5 != sscanf(line, "%s %d %d %d %d",
+		if (8 != sscanf(line, "%s %d %d %d %d %d %d %d",
 				cpu_name,
-				&new_cpu_usage[i][0],
-				&new_cpu_usage[i][1],
-				&new_cpu_usage[i][2],
-				&new_cpu_usage[i][3])
+				&new_cpu_usage[i][0], // user
+				&new_cpu_usage[i][1], // nice
+				&new_cpu_usage[i][2], // system
+				&new_cpu_usage[i][3], // idle
+				&new_cpu_usage[i][4], // iowait
+				&new_cpu_usage[i][5], // irq
+				&new_cpu_usage[i][6]) // softirq
 		) {
 			free(line);
 			continue;
@@ -266,21 +269,26 @@ static int getCPUUsage(int *cpuper)
 		}
 		count++;
 
-		idle_time	= new_cpu_usage[i][3] - old_cpu_usage[i][3];
-		other_time	= new_cpu_usage[i][0] - old_cpu_usage[i][0]
-					+ new_cpu_usage[i][1] - old_cpu_usage[i][1]
-					+ new_cpu_usage[i][2] - old_cpu_usage[i][2];
+		idle_time	= 0;
+		other_time	= 0;
+		for (x = 0; x < 7; x++) {
+			switch (x) {
+				case 3: // idle
+				case 4: // iowait
+					idle_time  += new_cpu_usage[i][x] - old_cpu_usage[i][x];
+					break;
+				default:
+					other_time += new_cpu_usage[i][x] - old_cpu_usage[i][x];
+					break;
+			}
+			old_cpu_usage[i][x] = new_cpu_usage[i][x];
+		}
 
 		if (idle_time + other_time) {
 			cpuper[i] = (other_time * 100) / (idle_time + other_time);
 		} else {
 			cpuper[i] = 0;
 		}
-
-		old_cpu_usage[i][0] = new_cpu_usage[i][0];
-		old_cpu_usage[i][1] = new_cpu_usage[i][1];
-		old_cpu_usage[i][2] = new_cpu_usage[i][2];
-		old_cpu_usage[i][3] = new_cpu_usage[i][3];
 	}
 
 	fclose(f);
