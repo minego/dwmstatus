@@ -39,9 +39,10 @@
 
 static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
 {
-	char		*format		= "^c%s^^r0,%d,%d,%d^^c%s^^r0,%d,%d,%d^";
+	char		*format		= "^c%s^^r0,%d,%d,%d^";
 	int			bar_height	= (percent * h) / 100;
 	int			y			= (BAR_HEIGHT - h) / 2;
+	size_t		used		= 0;
 
 	if (percent > 100) {
 		percent = 100;
@@ -49,7 +50,16 @@ static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, ch
 		percent = 0;
 	}
 
-	return(snprintf(dest, size, format, bg_color, y, w, h, fg_color, y + h - bar_height, w, bar_height));
+	if (bg_color) {
+		used += snprintf(dest + used, size - used, format,
+					bg_color, y, w, h);
+	}
+	if (fg_color) {
+		used += snprintf(dest + used, size - used, format,
+					fg_color, y + h - bar_height, w, bar_height);
+	}
+
+	return(used);
 }
 
 static void percentColor(char *string, int percent)
@@ -232,7 +242,7 @@ static int getCPUUsage(int *cpuper)
 	char		*line	= NULL;
 	int			count	= 0;
 	int			i, x;
-	long int	idle_time, other_time;
+	long int	busy_time, wait_time, total_time;
 	char		cpu_name[32];
 	static int	new_cpu_usage[MAX_CPUS][7];
 	static int	old_cpu_usage[MAX_CPUS][7];
@@ -265,31 +275,41 @@ static int getCPUUsage(int *cpuper)
 		free(line);
 
 		if (strncasecmp(cpu_name, "cpu", 3)) {
+			i--;
 			continue;
 		}
-		count++;
-
-		idle_time	= 0;
-		other_time	= 0;
+		busy_time	= 0;
+		wait_time	= 0;
+		total_time	= 0;
 		for (x = 0; x < 7; x++) {
 			switch (x) {
 				case 3: // idle
-				case 4: // iowait
-					idle_time  += new_cpu_usage[i][x] - old_cpu_usage[i][x];
 					break;
+
+				case 4: // iowait
+					wait_time += new_cpu_usage[i][x] - old_cpu_usage[i][x];
+					break;
+
 				default:
-					other_time += new_cpu_usage[i][x] - old_cpu_usage[i][x];
+					busy_time += new_cpu_usage[i][x] - old_cpu_usage[i][x];
 					break;
 			}
+			total_time += new_cpu_usage[i][x] - old_cpu_usage[i][x];
 			old_cpu_usage[i][x] = new_cpu_usage[i][x];
 		}
 
-		if (idle_time + other_time) {
-			cpuper[i] = (other_time * 100) / (idle_time + other_time);
+		if (total_time) {
+			cpuper[(i * 2) + 0] = (busy_time * 100) / total_time;
+			cpuper[(i * 2) + 1] = (wait_time * 100) / total_time;
 		} else {
-			cpuper[i] = 0;
+			cpuper[(i * 2) + 0] = 0;
+			cpuper[(i * 2) + 1] = 0;
 		}
+
+		count++;
 	}
+	cpuper[(i * 2) + 0] = -1;
+	cpuper[(i * 2) + 1] = -1;
 
 	fclose(f);
 	return(count);
@@ -476,8 +496,8 @@ int main(int argc, char **argv)
 {
 	Display		*dpy;
 	int			i, x, y, count;
-	size_t		curwidth, lastwidth = 0, padding;
-	int			cpuper[MAX_CPUS];
+	size_t		curwidth, lastwidth = 0, padding, used;
+	int			cpuper[MAX_CPUS * 2];
 	char		*status;
 	char		line[2 * 1024];
 	char		buffer[4 * 1024];
@@ -509,14 +529,28 @@ int main(int argc, char **argv)
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			" ^c%s^CPU  ^c%s^^f1^", COLOR_RED, COLOR_WHITE);
 
-		/* For each CPU (0 is average of all) */
+		/*
+			For each CPU (0 is average of all)
+
+			Each CPU has 2 values. The busy percentage and the iowait percentage
+		*/
 		count = getCPUUsage(cpuper);
 		for (i = 1; i < count; i++) {
-			if (-1 == cpuper[i]) {
+			if (-1 == cpuper[i * 2]) {
 				break;
 			}
+			used = 0;
 
-			vBar(cpuper[i], 4, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			/* Draw iowait + busy first */
+			used += vBar(cpuper[(i * 2)] + cpuper[(i * 2) + 1], 4, BAR_HEIGHT,
+							COLOR_RED, COLOR_GREY,
+							line + used, sizeof(line) - used);
+
+			/* Draw just busy on top */
+			used += vBar(cpuper[i * 2], 4, BAR_HEIGHT,
+							COLOR_WHITE, NULL,
+							line + used, sizeof(line) - used);
+
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s^f5^", line);
 		}
