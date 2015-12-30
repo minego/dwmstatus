@@ -1,6 +1,6 @@
 CC				= gcc
 EXT				= .c
-LDFLAGS			= -lX11 -lmpdclient
+LDFLAGS			= -lX11 -lmpdclient -lsensors
 DEBUG_FLAGS		= -DDEBUG=1 -W -Wall -g
 FLAGS			= -std=c99 -Wall -DMPD
 FLAGS			+= ${DEBUG_FLAGS}

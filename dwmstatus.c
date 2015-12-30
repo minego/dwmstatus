@@ -22,6 +22,7 @@
 #include <string.h>
 #include <X11/Xlib.h>
 #include <mpd/client.h>
+#include <sensors/sensors.h>
 
 #define COLOR_RED			"#FF0000"
 #define COLOR_WHITE			"#FFFFFF"
@@ -34,7 +35,6 @@
 #define BAT_NOW_FILE		"/sys/class/power_supply/BAT0/charge_now"
 #define BAT_FULL_FILE		"/sys/class/power_supply/BAT0/charge_full"
 #define BAT_STATUS_FILE		"/sys/class/power_supply/BAT0/status"
-#define TEMP_SENSOR_FILE	"/sys/class/hwmon/hwmon1/temp1_input"
 #define TEMP_SENSOR_F		"/sys/class/hwmon/hwmon%d/temp%d_"
 
 static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
@@ -376,53 +376,67 @@ static char * getDateTime(char *format, char *dest, size_t size)
 	return(0);
 }
 
-static int getTemperature(void)
+static int getTempBar(char *dest, size_t len)
 {
-	int		temp;
-	FILE	*f;
+	int							used	= 0;
+	int							temp;
+	int							high;
+	int							crit;
+	int							cx, fx;
+	const sensors_chip_name		*chip;
+	const sensors_feature		*feature;
+	const sensors_subfeature	*sub;
+	char						*label;
+	double						value;
 
-	if (!(f = fopen(TEMP_SENSOR_FILE, "r"))) {
-		return(-1);
+	*dest = '\0';
+
+	cx = 0;
+	while ((chip = sensors_get_detected_chips(NULL, &cx))) {
+		fx = 0;
+		while ((feature = sensors_get_features(chip, &fx))) {
+			/* We're only interested in temperatures */
+			if (SENSORS_FEATURE_TEMP != feature->type) {
+				continue;
+			}
+
+			/* We're only interested in CPU cores (for now) */
+			if (!(label = sensors_get_label(chip, feature)) ||
+				!strstr(label, "Core")
+			) {
+				continue;
+			}
+
+			if ((sub = sensors_get_subfeature(chip, feature, SENSORS_SUBFEATURE_TEMP_INPUT))) {
+				sensors_get_value(chip, sub->number, &value);
+				temp = (int) value;
+			} else {
+				continue;
+			}
+
+			if ((sub = sensors_get_subfeature(chip, feature, SENSORS_SUBFEATURE_TEMP_MAX))) {
+				sensors_get_value(chip, sub->number, &value);
+				high = (int) value;
+			} else {
+				high = 80;
+			}
+
+			if ((sub = sensors_get_subfeature(chip, feature, SENSORS_SUBFEATURE_TEMP_CRIT))) {
+				sensors_get_value(chip, sub->number, &value);
+				crit = (int) value;
+			} else {
+				crit = 90;
+			}
+
+			used += vBar((temp * 100) / crit, 2, BAR_HEIGHT,
+				temp < high ? COLOR_WHITE : COLOR_RED, COLOR_GREY,
+				dest + used, len - used);
+
+			used += snprintf(dest + used, len - used, "^f3^");
+		}
 	}
 
-	fscanf(f, "%d", &temp);
-	fclose(f);
-
-	temp = temp / 1000;
-
-	/* Convert to fahrenheit */
-	temp = (9.0 / 5.0) * temp + 32.0;
-
-	return(temp);
-}
-
-static int getTempBar(int x, int y, char *dest, size_t len)
-{
-	int		temp;
-	int		max;
-	FILE	*f;
-
-	snprintf(dest, len, TEMP_SENSOR_F "input", x, y);
-	if (!(f = fopen(dest, "r"))) {
-		return(-1);
-	}
-
-	fscanf(f, "%d", &temp);
-	fclose(f);
-
-	snprintf(dest, len, TEMP_SENSOR_F "max", x, y);
-	if (!(f = fopen(dest, "r"))) {
-		snprintf(dest, len, TEMP_SENSOR_F "crit", x, y);
-		f = fopen(dest, "r");
-	}
-	if (!f) {
-		return(-1);
-	}
-
-	fscanf(f, "%d", &max);
-	fclose(f);
-
-	return(vBar((temp * 100) / max, 2, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, dest, len));
+	return(used);
 }
 
 static int getMPDInfo(char *dest, size_t len)
@@ -495,7 +509,7 @@ static void setStatus(Display *dpy, char *str)
 int main(int argc, char **argv)
 {
 	Display		*dpy;
-	int			i, x, y, count;
+	int			i, count;
 	size_t		curwidth, lastwidth = 0, padding, used;
 	int			cpuper[MAX_CPUS * 2];
 	char		*status;
@@ -506,6 +520,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Cannot open display.\n");
 		return(EXIT_FAILURE);
 	}
+
+	sensors_init(NULL);
 
 	for (;;) {
 		status = buffer;
@@ -566,31 +582,12 @@ int main(int argc, char **argv)
 				"%s", line);
 		}
 
-#if 0
-		/* Temp */
-		if (0 < (i = getTemperature())) {
-			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^TEMP  ^f1^^c%s^%d%cF^f4^ ", COLOR_RED, COLOR_WHITE, i, DEGREE_CHAR);
-		}
-#endif
-
 		/* Temperature */
-		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			" ^c%s^TEMP  ", COLOR_RED);
-		for (x = 0; ; x++) {
-			for (y = 1; ; y++) {
-				i = getTempBar(x, y, line, sizeof(line));
-				if (i < 0) {
-					break;
-				}
-
-				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"%s^f3^", line);
-			}
-
-			if (i < 0 && y <= 1) {
-				break;
-			}
+		if (0 < getTempBar(line, sizeof(line))) {
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				" ^c%s^TEMP  ", COLOR_RED);
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"%s^f3^", line);
 		}
 
 		/* Wifi */
