@@ -587,7 +587,7 @@ int main(int argc, char **argv)
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				" ^c%s^TEMP  ", COLOR_RED);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"%s^f3^", line);
+				"%s", line);
 		}
 
 		/* Wifi */
