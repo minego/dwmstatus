@@ -26,7 +26,9 @@
 
 #define COLOR_RED			"#FF0000"
 #define COLOR_WHITE			"#FFFFFF"
+#define COLOR_GREEN			"#00FF00"
 #define COLOR_GREY			"#666666"
+#define COLOR_ORANGE		"#FFA500"
 #define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
 
@@ -60,15 +62,6 @@ static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, ch
 	}
 
 	return(used);
-}
-
-static void percentColor(char *string, int percent)
-{
-	char		*format	= "#%X0%X000";
-	int			g		= (percent * 15) / 100;
-	int			r		= 15 - g;
-
-	snprintf(string, 8, format, r, g);
 }
 
 static int getBattery(void)
@@ -125,12 +118,19 @@ static int getBatteryBar(char *dest, size_t size)
 
 	switch (getBatteryStatus()) {
 		case 'C':	/* Charging		*/
+			strcpy(fg_color, COLOR_GREEN);
+			break;
+
 		case 'F':	/* Full			*/
 			strcpy(fg_color, COLOR_WHITE);
 			break;
 
 		case 'D':	/* Discharging	*/
-			percentColor(fg_color, percent);
+			if (percent < 20) {
+				strcpy(fg_color, COLOR_RED);
+			} else {
+				strcpy(fg_color, COLOR_ORANGE);
+			}
 			break;
 
 		default:
