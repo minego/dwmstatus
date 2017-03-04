@@ -24,7 +24,7 @@
 #include <mpd/client.h>
 #include <sensors/sensors.h>
 
-#define COLOR_RED			"#FF0000"
+#define COLOR_RED			"#E84F4F"
 #define COLOR_WHITE			"#FFFFFF"
 #define COLOR_GREEN			"#00FF00"
 #define COLOR_GREY			"#666666"
