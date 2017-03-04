@@ -34,9 +34,9 @@
 
 #define MAX_CPUS			32
 #define BAR_HEIGHT			15
-#define BAT_NOW_FILE		"/sys/class/power_supply/BAT0/charge_now"
-#define BAT_FULL_FILE		"/sys/class/power_supply/BAT0/charge_full"
-#define BAT_STATUS_FILE		"/sys/class/power_supply/BAT0/status"
+#define BAT0				"/sys/class/power_supply/BAT0/"
+#define BAT1				"/sys/class/power_supply/BAT1/"
+#define BAT_STATUS_FILE		"status"
 #define TEMP_SENSOR_F		"/sys/class/hwmon/hwmon%d/temp%d_"
 
 static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
@@ -70,14 +70,22 @@ static int getBattery(void)
 	int			energy_now;
 	int			energy_full;
 
-	if (!(f = fopen(BAT_FULL_FILE, "r"))) {
+	if (!(f = fopen(BAT0 "charge_full", "r")) &&
+		!(f = fopen(BAT1 "charge_full", "r")) &&
+		!(f = fopen(BAT0 "energy_full", "r")) &&
+		!(f = fopen(BAT1 "energy_full", "r"))
+	) {
 		return -1;
 	}
 
 	fscanf(f, "%d", &energy_full);
 	fclose(f);
 
-	if (!(f = fopen(BAT_NOW_FILE, "r"))) {
+	if (!(f = fopen(BAT0 "charge_now", "r")) &&
+		!(f = fopen(BAT1 "charge_now", "r")) &&
+		!(f = fopen(BAT0 "energy_now", "r")) &&
+		!(f = fopen(BAT1 "energy_now", "r"))
+	) {
 		return -1;
 	}
 
@@ -99,7 +107,9 @@ static char getBatteryStatus(void)
 	FILE		*f;
 	char		status;
 
-	if (!(f = fopen(BAT_STATUS_FILE, "r"))) {
+	if (!(f = fopen(BAT0 BAT_STATUS_FILE, "r")) &&
+		!(f = fopen(BAT1 BAT_STATUS_FILE, "r"))
+	) {
 		return(-1);
 	}
 
@@ -577,10 +587,12 @@ int main(int argc, char **argv)
 			"  ^c%s^MEM  ^f1^%s^f6^", COLOR_RED, line);
 
 		/* Volume */
+#if 0
 		if (0 < getVolumeBar(line, sizeof(line))) {
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
+#endif
 
 		/* Temperature */
 		if (0 < getTempBar(line, sizeof(line))) {
