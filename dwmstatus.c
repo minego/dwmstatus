@@ -497,7 +497,7 @@ static int getMPDInfo(char *dest, size_t len)
 		mpd_response_next(conn);
 
 		song = mpd_recv_song(conn);
-		snprintf(dest, len, "PLAYING %s^f-2^ BY %s",
+		snprintf(dest, len, "PLAYING %s BY %s",
 			mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
 			mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
 
