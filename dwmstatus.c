@@ -24,15 +24,37 @@
 #include <mpd/client.h>
 #include <sensors/sensors.h>
 
-#define COLOR_RED			"#E84F4F"
-#define COLOR_WHITE			"#FFFFFF"
-#define COLOR_GREEN			"#00FF00"
+#define COLOR_RED			"#e84f4f"
+#define COLOR_WHITE			"#dddddd"
+#define COLOR_GREEN			"#b8d68c"
 #define COLOR_GREY			"#666666"
-#define COLOR_ORANGE		"#FFA500"
+#define COLOR_ORANGE		"#e1aa5d"
 #define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
 
-int bglevel					= -1;
+static char *bglist[] = {
+	[0] = "#222222", /* black   */
+	[1] = "#b8d68c", /* green   */
+	[2] = "#ffffff", /* white   */
+	[3] = "#dddddd", /* white   */
+	[4] = "#404040", /* black   */
+	[5] = "#d23d3d", /* red     */
+	[6] = "#a0cf5d", /* green   */
+};
+
+static char *fglist[] = {
+	[0] = "#ffffff",
+	[1] = "#000000",
+	[2] = "#000000",
+	[3] = "#000000",
+	[4] = "#ffffff",
+	[5] = "#000000",
+	[6] = "#000000",
+};
+
+char	*bg = (char *) &bglist;
+char	*fg = (char *) &fglist;
+
 
 #define MAX_CPUS			32
 #define BAR_HEIGHT			15
@@ -475,9 +497,9 @@ static int getMPDInfo(char *dest, size_t len)
 		mpd_response_next(conn);
 
 		song = mpd_recv_song(conn);
-		snprintf(dest, len, "^c%s^PLAYING ^c%s^%s^f-2^^c%s^ BY ^c%s^%s",
-			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
-			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
+		snprintf(dest, len, "PLAYING %s^f-2^ BY %s",
+			mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
+			mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
 
 		mpd_song_free(song);
 
@@ -507,9 +529,9 @@ static int getVolumeBar(char *dest, size_t len)
 	}
 
 	r = 0;
-	r += snprintf(dest + r, len - r, "^c%s^VOL  ^f1^", COLOR_RED);
+	r += snprintf(dest + r, len - r, "VOL  ^f1^");
 	r += vBar(volume, 6, BAR_HEIGHT, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
-	r += snprintf(dest + r, len - r, "^f6^^c%s^^f8^", COLOR_WHITE);
+	r += snprintf(dest + r, len - r, "^f6^^f8^");
 	return(r);
 }
 
@@ -519,25 +541,12 @@ static void setStatus(Display *dpy, char *str)
 	XSync(dpy, False);
 }
 
-size_t nextbg(char *status, size_t size)
+size_t nextbg(int color, char *status, size_t size)
 {
-	size_t used;
+	bg = (char *) bglist[color % (sizeof(bglist) / sizeof(char *))];
+	fg = (char *) fglist[color % (sizeof(fglist) / sizeof(char *))];
 
-	if (bglevel < 0) {
-		/* Skip the first label */
-		bglevel = 0;
-		return(0);
-	}
-
-	if (bglevel <= 0) {
-		used = snprintf(status, size, "^a#333333^");
-		bglevel = 1;
-	} else {
-		used = snprintf(status, size, "^a#222222^");
-		bglevel = 0;
-	}
-
-	return(used);
+	return(snprintf(status, size, "^a%s^^c%s^", bg, fg));
 }
 
 int main(int argc, char **argv)
@@ -558,32 +567,31 @@ int main(int argc, char **argv)
 	sensors_init(NULL);
 
 	for (;;) {
-		bglevel = -1;
 		status = buffer;
 		*status = '\0';
 
 		/* Phone call or music */
 		if (!getScriptStr("dial what", line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(1, status, sizeof(buffer) - (status - buffer));
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^c%s^%s", COLOR_RED, line);
+				"%s", line);
 
 			if (!getScriptStr("dial who", line, sizeof(line))) {
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"^c%s^%s", COLOR_WHITE, line);
+					"%s", line);
 			}
 		} else if (!getMPDInfo(line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(1, status, sizeof(buffer) - (status - buffer));
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* CPU label */
-		status += nextbg(status, sizeof(buffer) - (status - buffer));
+		status += nextbg(4, status, sizeof(buffer) - (status - buffer));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"^c%s^CPU  ^c%s^", COLOR_RED, COLOR_WHITE);
+			"CPU ");
 
 		/*
 			For each CPU (0 is average of all)
@@ -612,15 +620,15 @@ int main(int argc, char **argv)
 		}
 
 		/* MEM usage */
-		status += nextbg(status, sizeof(buffer) - (status - buffer));
+		status += nextbg(4, status, sizeof(buffer) - (status - buffer));
 		vBar((i = getMEMUsage()), 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"^c%s^MEM  %s^f6^", COLOR_RED, line);
+			"MEM %s^f6^", line);
 
 		/* Volume */
 #if 0
 		if (0 < getVolumeBar(line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(5, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
@@ -628,39 +636,39 @@ int main(int argc, char **argv)
 
 		/* Temperature */
 		if (0 < getTempBar(line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^c%s^TEMP  ", COLOR_RED);
+				"TEMP ");
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Wifi */
 		if (0 < getWifiBar(line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Battery */
 		if (0 < getBatteryBar(line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^c%s^%s", COLOR_RED, line);
+				"%s", line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
-			status += nextbg(status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"^c%s^%s", COLOR_WHITE, line);
+				"%s", line);
 		}
 
 		curwidth = status - buffer;
