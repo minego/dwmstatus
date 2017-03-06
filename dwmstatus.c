@@ -422,6 +422,7 @@ static int getTempBar(char *dest, size_t len)
 	const sensors_feature		*feature;
 	const sensors_subfeature	*sub;
 	char						*label;
+	char						*color;
 	double						value;
 
 	*dest = '\0';
@@ -463,8 +464,21 @@ static int getTempBar(char *dest, size_t len)
 				crit = 90;
 			}
 
+			if (temp >= 65) {
+				color = COLOR_RED;
+			} else if (temp >= 50) {
+				color = COLOR_ORANGE;
+			} else {
+				color = COLOR_WHITE;
+			}
+
+			/* Scale temp between 30 and the high limit */
+			temp -= 30;
+			crit -= 30;
+			high -= 30;
+
 			used += vBar((temp * 100) / crit, 2, BAR_HEIGHT,
-				temp < high ? COLOR_WHITE : COLOR_RED, COLOR_GREY,
+				color, COLOR_GREY,
 				dest + used, len - used);
 
 			used += snprintf(dest + used, len - used, "^f3^");
