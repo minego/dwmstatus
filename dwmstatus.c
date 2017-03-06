@@ -32,6 +32,8 @@
 #define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
 
+int bglevel					= -1;
+
 #define MAX_CPUS			32
 #define BAR_HEIGHT			15
 #define BAT0				"/sys/class/power_supply/BAT0/"
@@ -151,6 +153,7 @@ static int getBatteryBar(char *dest, size_t size)
 
 	/* Cover over the top bits so it looks like a battery */
 	r += snprintf(dest + r, size - r, "^c" COLOR_DGREY "^^r0,0,3,2^^r7,0,3,2^");
+// TODO Set to the current bg color instead of COLOR_DGREY
 	r += snprintf(dest + r, size - r, "^f10^");
 
 	return(r);
@@ -472,7 +475,7 @@ static int getMPDInfo(char *dest, size_t len)
 		mpd_response_next(conn);
 
 		song = mpd_recv_song(conn);
-		snprintf(dest, len, " ^c%s^PLAYING ^c%s^%s^f-2^^c%s^ BY ^c%s^%s ",
+		snprintf(dest, len, "^c%s^PLAYING ^c%s^%s^f-2^^c%s^ BY ^c%s^%s",
 			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
 			COLOR_RED, COLOR_WHITE, mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
 
@@ -504,7 +507,7 @@ static int getVolumeBar(char *dest, size_t len)
 	}
 
 	r = 0;
-	r += snprintf(dest + r, len - r, "  ^c%s^VOL  ^f1^", COLOR_RED);
+	r += snprintf(dest + r, len - r, "^c%s^VOL  ^f1^", COLOR_RED);
 	r += vBar(volume, 6, BAR_HEIGHT, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
 	r += snprintf(dest + r, len - r, "^f6^^c%s^^f8^", COLOR_WHITE);
 	return(r);
@@ -514,6 +517,27 @@ static void setStatus(Display *dpy, char *str)
 {
 	XStoreName(dpy, DefaultRootWindow(dpy), str);
 	XSync(dpy, False);
+}
+
+size_t nextbg(char *status, size_t size)
+{
+	size_t used;
+
+	if (bglevel < 0) {
+		/* Skip the first label */
+		bglevel = 0;
+		return(0);
+	}
+
+	if (bglevel <= 0) {
+		used = snprintf(status, size, "^a#333333^");
+		bglevel = 1;
+	} else {
+		used = snprintf(status, size, "^a#222222^");
+		bglevel = 0;
+	}
+
+	return(used);
 }
 
 int main(int argc, char **argv)
@@ -534,26 +558,32 @@ int main(int argc, char **argv)
 	sensors_init(NULL);
 
 	for (;;) {
+		bglevel = -1;
 		status = buffer;
 		*status = '\0';
 
 		/* Phone call or music */
 		if (!getScriptStr("dial what", line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
+
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"  ^c%s^%s", COLOR_RED, line);
+				"^c%s^%s", COLOR_RED, line);
 
 			if (!getScriptStr("dial who", line, sizeof(line))) {
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"  ^c%s^%s", COLOR_WHITE, line);
+					"^c%s^%s", COLOR_WHITE, line);
 			}
 		} else if (!getMPDInfo(line, sizeof(line))) {
-				status += snprintf(status, sizeof(buffer) - (status - buffer),
-					"%s", line);
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
+
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"%s", line);
 		}
 
 		/* CPU label */
+		status += nextbg(status, sizeof(buffer) - (status - buffer));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			" ^c%s^CPU  ^c%s^^f1^", COLOR_RED, COLOR_WHITE);
+			"^c%s^CPU  ^c%s^", COLOR_RED, COLOR_WHITE);
 
 		/*
 			For each CPU (0 is average of all)
@@ -582,13 +612,15 @@ int main(int argc, char **argv)
 		}
 
 		/* MEM usage */
+		status += nextbg(status, sizeof(buffer) - (status - buffer));
 		vBar((i = getMEMUsage()), 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
-			"  ^c%s^MEM  ^f1^%s^f6^", COLOR_RED, line);
+			"^c%s^MEM  %s^f6^", COLOR_RED, line);
 
 		/* Volume */
 #if 0
 		if (0 < getVolumeBar(line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
@@ -596,34 +628,39 @@ int main(int argc, char **argv)
 
 		/* Temperature */
 		if (0 < getTempBar(line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" ^c%s^TEMP  ", COLOR_RED);
+				"^c%s^TEMP  ", COLOR_RED);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Wifi */
 		if (0 < getWifiBar(line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				" %s", line);
+				"%s", line);
 		}
 
 		/* Battery */
 		if (0 < getBatteryBar(line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"  %s", line);
+				"%s", line);
 		}
 
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"   ^c%s^%s", COLOR_RED, line);
+				"^c%s^%s", COLOR_RED, line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
+			status += nextbg(status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"   ^c%s^%s", COLOR_WHITE, line);
+				"^c%s^%s", COLOR_WHITE, line);
 		}
 
 		curwidth = status - buffer;
