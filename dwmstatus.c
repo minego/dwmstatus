@@ -490,10 +490,12 @@ static int getTempBar(char *dest, size_t len)
 
 static int getMPDInfo(char *dest, size_t len)
 {
+	char					*title, *artist;
     struct mpd_connection	*conn;
     struct mpd_status		*status;
     struct mpd_song			*song		= NULL;
 	int						r			= -1;
+	int						used		= 0;
 
     if (!(conn = mpd_connection_new(NULL, 0, 30000)) ||
 		mpd_connection_get_error(conn)
@@ -511,9 +513,47 @@ static int getMPDInfo(char *dest, size_t len)
 		mpd_response_next(conn);
 
 		song = mpd_recv_song(conn);
-		snprintf(dest, len, "PLAYING %s BY %s",
-			mpd_song_get_tag(song, MPD_TAG_TITLE, 0),
-			mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
+
+#if 0
+		printf("MPD_TAG_UNKNOWN: %s\n", mpd_song_get_tag(song, MPD_TAG_UNKNOWN, 0));
+		printf("MPD_TAG_ARTIST: %s\n", mpd_song_get_tag(song, MPD_TAG_ARTIST, 0));
+		printf("MPD_TAG_ALBUM: %s\n", mpd_song_get_tag(song, MPD_TAG_ALBUM, 0));
+		printf("MPD_TAG_ALBUM_ARTIST: %s\n", mpd_song_get_tag(song, MPD_TAG_ALBUM_ARTIST, 0));
+		printf("MPD_TAG_TITLE: %s\n", mpd_song_get_tag(song, MPD_TAG_TITLE, 0));
+		printf("MPD_TAG_TRACK: %s\n", mpd_song_get_tag(song, MPD_TAG_TRACK, 0));
+
+		printf("MPD_TAG_NAME: %s\n", mpd_song_get_tag(song, MPD_TAG_NAME, 0));
+		printf("MPD_TAG_GENRE: %s\n", mpd_song_get_tag(song, MPD_TAG_GENRE, 0));
+		printf("MPD_TAG_DATE: %s\n", mpd_song_get_tag(song, MPD_TAG_DATE, 0));
+		printf("MPD_TAG_COMPOSER: %s\n", mpd_song_get_tag(song, MPD_TAG_COMPOSER, 0));
+
+		printf("MPD_TAG_PERFORMER: %s\n", mpd_song_get_tag(song, MPD_TAG_PERFORMER, 0));
+		printf("MPD_TAG_COMMENT: %s\n", mpd_song_get_tag(song, MPD_TAG_COMMENT, 0));
+		printf("MPD_TAG_DISC: %s\n", mpd_song_get_tag(song, MPD_TAG_DISC, 0));
+		printf("MPD_TAG_MUSICBRAINZ_ARTISTID: %s\n", mpd_song_get_tag(song, MPD_TAG_MUSICBRAINZ_ARTISTID, 0));
+
+		printf("MPD_TAG_MUSICBRAINZ_ALBUMID: %s\n", mpd_song_get_tag(song, MPD_TAG_MUSICBRAINZ_ALBUMID, 0));
+		printf("MPD_TAG_MUSICBRAINZ_ALBUMARTISTID: %s\n", mpd_song_get_tag(song, MPD_TAG_MUSICBRAINZ_ALBUMARTISTID, 0));
+		printf("MPD_TAG_MUSICBRAINZ_TRACKID: %s\n", mpd_song_get_tag(song, MPD_TAG_MUSICBRAINZ_TRACKID, 0));
+		printf("MPD_TAG_MUSICBRAINZ_RELEASETRACKID: %s\n", mpd_song_get_tag(song, MPD_TAG_MUSICBRAINZ_RELEASETRACKID, 0));
+
+		exit (0);
+#endif
+
+		if (!(title = (char *) mpd_song_get_tag(song, MPD_TAG_TITLE, 0))) {
+			title = (char *) mpd_song_get_tag(song, MPD_TAG_NAME, 0);
+		}
+		artist = (char *) mpd_song_get_tag(song, MPD_TAG_ARTIST, 0);
+
+		if (title) {
+			used += snprintf(dest + used, len - used, "PLAYING %s ", title);
+
+			if (artist) {
+				used += snprintf(dest + used, len - used, "BY %s ", artist);
+			}
+		} else {
+			used += snprintf(dest + used, len - used, "PLAYING ... ");
+		}
 
 		mpd_song_free(song);
 
