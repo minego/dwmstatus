@@ -546,10 +546,10 @@ static int getMPDInfo(char *dest, size_t len)
 		artist = (char *) mpd_song_get_tag(song, MPD_TAG_ARTIST, 0);
 
 		if (title) {
-			used += snprintf(dest + used, len - used, "PLAYING %s ", title);
+			used += snprintf(dest + used, len - used, "%s", title);
 
 			if (artist) {
-				used += snprintf(dest + used, len - used, "BY %s ", artist);
+				used += snprintf(dest + used, len - used, " - %s", artist);
 			}
 		} else {
 			used += snprintf(dest + used, len - used, "PLAYING ... ");
