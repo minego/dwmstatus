@@ -635,7 +635,8 @@ int main(int argc, char **argv)
 				status += snprintf(status, sizeof(buffer) - (status - buffer),
 					"%s", line);
 			}
-		} else if (!getMPDInfo(line, sizeof(line))) {
+		// } else if (!getMPDInfo(line, sizeof(line))) {
+		} else if (!getScriptStr("mediacontrol what", line, sizeof(line))) {
 			status += nextbg(1, status, sizeof(buffer) - (status - buffer));
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
