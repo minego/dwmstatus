@@ -661,17 +661,17 @@ int main(int argc, char **argv)
 			used = 0;
 
 			/* Draw iowait + busy first */
-			used += vBar(cpuper[(i * 2)] + cpuper[(i * 2) + 1], 4, BAR_HEIGHT,
+			used += vBar(cpuper[(i * 2)] + cpuper[(i * 2) + 1], 6, BAR_HEIGHT,
 							COLOR_RED, COLOR_GREY,
 							line + used, sizeof(line) - used);
 
 			/* Draw just busy on top */
-			used += vBar(cpuper[i * 2], 4, BAR_HEIGHT,
+			used += vBar(cpuper[i * 2], 6, BAR_HEIGHT,
 							COLOR_WHITE, NULL,
 							line + used, sizeof(line) - used);
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
-				"%s^f5^", line);
+				"%s^f7^", line);
 		}
 
 		/* MEM usage */
