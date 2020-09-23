@@ -57,7 +57,7 @@ char	*fg = (char *) &fglist;
 
 
 #define MAX_CPUS			32
-#define BAR_HEIGHT			15
+#define BAR_HEIGHT			20
 #define BAT0				"/sys/class/power_supply/BAT0/"
 #define BAT1				"/sys/class/power_supply/BAT1/"
 #define BAT_STATUS_FILE		"status"
