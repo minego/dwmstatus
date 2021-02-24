@@ -56,12 +56,15 @@ char	*bg = (char *) &bglist;
 char	*fg = (char *) &fglist;
 
 
-#define MAX_CPUS			32
+#define MAX_CPUS			128
 #define BAR_HEIGHT			20
 #define BAT0				"/sys/class/power_supply/BAT0/"
 #define BAT1				"/sys/class/power_supply/BAT1/"
 #define BAT_STATUS_FILE		"status"
-#define TEMP_SENSOR_F		"/sys/class/hwmon/hwmon%d/temp%d_"
+
+
+#define GPU					"/sys/class/drm/card0/device/gpu_busy_percent"
+#define VMEM				"/sys/class/drm/card0/device/mem_busy_percent"
 
 static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, char *dest, size_t size)
 {
@@ -86,6 +89,21 @@ static size_t vBar(int percent, int w, int h, char *fg_color, char *bg_color, ch
 	}
 
 	return(used);
+}
+
+static int getPercentage(const char *path)
+{
+	FILE		*f;
+	int			per;
+
+	if (!(f = fopen(path, "r"))) {
+		return -1;
+	}
+
+	fscanf(f, "%d", &per);
+	fclose(f);
+
+	return per;
 }
 
 static int getBattery(void)
@@ -438,7 +456,10 @@ static int getTempBar(char *dest, size_t len)
 
 			/* We're only interested in CPU cores (for now) */
 			if (!(label = sensors_get_label(chip, feature)) ||
-				!strstr(label, "Core")
+				(
+					!strstr(label, "Core") &&
+					!strstr(label, "Composite")
+				)
 			) {
 				continue;
 			}
@@ -680,6 +701,26 @@ int main(int argc, char **argv)
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"MEM %s^f6^", line);
 
+
+		/* GPU */
+		i = getPercentage(GPU);
+		if (i >= 0) {
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"GPU %s^f6^", line);
+		}
+
+		/* vmem */
+		i = getPercentage(VMEM);
+		if (i >= 0) {
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			status += snprintf(status, sizeof(buffer) - (status - buffer),
+				"VMEM %s^f6^", line);
+		}
+
+
 		/* Volume */
 #if 0
 		if (0 < getVolumeBar(line, sizeof(line))) {
@@ -714,17 +755,19 @@ int main(int argc, char **argv)
 
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
-			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
+
+		status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 
 		curwidth = status - buffer;
 		if (lastwidth > curwidth) {
