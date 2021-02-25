@@ -28,7 +28,7 @@
 #define COLOR_WHITE			"#dddddd"
 #define COLOR_GREEN			"#b8d68c"
 #define COLOR_GREY			"#00666666"
-#define COLOR_ORANGE		"#e1aa5d"
+#define COLOR_ORANGE		"#f39d21"
 #define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
 
@@ -37,9 +37,10 @@ static char *bglist[] = {
 	[1] = "#ffb8d68c", /* green   */
 	[2] = "#ffffffff", /* white   */
 	[3] = "#ffdddddd", /* whiteish*/
-	[4] = "#00404040", /* blackish*/
-	[5] = "#ffd23d3d", /* red     */
+	[4] = "#ff262626", /* grey    */
+	[5] = "#ffe84f4f", /* red     */
 	[6] = "#ffa0cf5d", /* green   */
+	[7] = "#fff39d21", /* orange   */
 };
 
 static char *fglist[] = {
@@ -48,8 +49,9 @@ static char *fglist[] = {
 	[2] = "#000000",
 	[3] = "#000000",
 	[4] = "#ffffff",
-	[5] = "#000000",
+	[5] = "#ffffff",
 	[6] = "#000000",
+	[7] = "#000000",
 };
 
 char	*bg = (char *) &bglist;
@@ -773,7 +775,7 @@ int main(int argc, char **argv)
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
-			status += nextbg(5, status, sizeof(buffer) - (status - buffer), 1, 1);
+			status += nextbg(7, status, sizeof(buffer) - (status - buffer), 1, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
