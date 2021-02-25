@@ -621,7 +621,7 @@ size_t nextbg(int color, char *status, size_t size)
 	bg = (char *) bglist[color % (sizeof(bglist) / sizeof(char *))];
 	fg = (char *) fglist[color % (sizeof(fglist) / sizeof(char *))];
 
-	return(snprintf(status, size, "^a%s^^c%s^", bg, fg));
+	return(snprintf(status, size, " ^a%s^^c%s^ ", bg, fg));
 }
 
 int main(int argc, char **argv)
@@ -766,8 +766,6 @@ int main(int argc, char **argv)
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
-
-		status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 
 		curwidth = status - buffer;
 		if (lastwidth > curwidth) {
