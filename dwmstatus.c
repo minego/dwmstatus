@@ -33,13 +33,13 @@
 #define DEGREE_CHAR			((char) 176)
 
 static char *bglist[] = {
-	[0] = "#222222", /* black   */
-	[1] = "#b8d68c", /* green   */
-	[2] = "#ffffff", /* white   */
-	[3] = "#dddddd", /* white   */
-	[4] = "#404040", /* black   */
-	[5] = "#d23d3d", /* red     */
-	[6] = "#a0cf5d", /* green   */
+	[0] = "#00000000", /* black   */
+	[1] = "#ffb8d68c", /* green   */
+	[2] = "#ffffffff", /* white   */
+	[3] = "#ffdddddd", /* whiteish*/
+	[4] = "#00404040", /* blackish*/
+	[5] = "#ffd23d3d", /* red     */
+	[6] = "#ffa0cf5d", /* green   */
 };
 
 static char *fglist[] = {
@@ -665,7 +665,7 @@ int main(int argc, char **argv)
 		}
 
 		/* CPU label */
-		status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+		status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"CPU ");
 
@@ -705,7 +705,7 @@ int main(int argc, char **argv)
 		/* GPU */
 		i = getPercentage(GPU);
 		if (i >= 0) {
-			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"GPU %s^f6^", line);
@@ -732,7 +732,7 @@ int main(int argc, char **argv)
 
 		/* Temperature */
 		if (0 < getTempBar(line, sizeof(line))) {
-			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"TEMP ");
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
@@ -741,7 +741,7 @@ int main(int argc, char **argv)
 
 		/* Wifi */
 		if (0 < getWifiBar(line, sizeof(line))) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
@@ -755,14 +755,14 @@ int main(int argc, char **argv)
 
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
-			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(5, status, sizeof(buffer) - (status - buffer));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
