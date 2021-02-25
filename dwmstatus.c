@@ -27,7 +27,7 @@
 #define COLOR_RED			"#e84f4f"
 #define COLOR_WHITE			"#dddddd"
 #define COLOR_GREEN			"#b8d68c"
-#define COLOR_GREY			"#666666"
+#define COLOR_GREY			"#00666666"
 #define COLOR_ORANGE		"#e1aa5d"
 #define COLOR_DGREY			"#222222"
 #define DEGREE_CHAR			((char) 176)
@@ -189,7 +189,7 @@ static int getBatteryBar(char *dest, size_t size)
 			return(-1);
 	}
 
-	r = vBar(percent, 10, BAR_HEIGHT, fg_color, COLOR_GREY, dest, size);
+	r = vBar(percent, 10, BAR_HEIGHT, fg_color, NULL, dest, size);
 
 	/* Cover over the top bits so it looks like a battery */
 	r += snprintf(dest + r, size - r, "^c" COLOR_DGREY "^^r0,0,3,2^^r7,0,3,2^");
@@ -499,7 +499,7 @@ static int getTempBar(char *dest, size_t len)
 			high -= 30;
 
 			used += vBar((temp * 100) / crit, 2, BAR_HEIGHT,
-				color, COLOR_GREY,
+				color, NULL,
 				dest + used, len - used);
 
 			used += snprintf(dest + used, len - used, "^f3^");
@@ -509,6 +509,7 @@ static int getTempBar(char *dest, size_t len)
 	return(used);
 }
 
+#if 0
 static int getMPDInfo(char *dest, size_t len)
 {
 	char					*title, *artist;
@@ -586,7 +587,9 @@ static int getMPDInfo(char *dest, size_t len)
 
 	return(r);
 }
+#endif
 
+#if 0
 static int getVolumeBar(char *dest, size_t len)
 {
 	int		r;
@@ -605,10 +608,11 @@ static int getVolumeBar(char *dest, size_t len)
 
 	r = 0;
 	r += snprintf(dest + r, len - r, "VOL  ^f1^");
-	r += vBar(volume, 6, BAR_HEIGHT, !muted ? COLOR_WHITE : COLOR_RED, COLOR_GREY, dest + r, len - r);
+	r += vBar(volume, 6, BAR_HEIGHT, !muted ? COLOR_WHITE : COLOR_RED, NULL, dest + r, len - r);
 	r += snprintf(dest + r, len - r, "^f6^^f8^");
 	return(r);
 }
+#endif
 
 static void setStatus(Display *dpy, char *str)
 {
@@ -616,12 +620,12 @@ static void setStatus(Display *dpy, char *str)
 	XSync(dpy, False);
 }
 
-size_t nextbg(int color, char *status, size_t size)
+size_t nextbg(int color, char *status, size_t size, int lpad, int rpad)
 {
 	bg = (char *) bglist[color % (sizeof(bglist) / sizeof(char *))];
 	fg = (char *) fglist[color % (sizeof(fglist) / sizeof(char *))];
 
-	return(snprintf(status, size, " ^a%s^^c%s^ ", bg, fg));
+	return(snprintf(status, size, "%.*s^a%s^^c%s^%.*s", lpad, "     ", bg, fg, rpad, "     "));
 }
 
 int main(int argc, char **argv)
@@ -647,7 +651,7 @@ int main(int argc, char **argv)
 
 		/* Phone call or music */
 		if (!getScriptStr("dial what", line, sizeof(line))) {
-			status += nextbg(1, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(1, status, sizeof(buffer) - (status - buffer), 1, 1);
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
@@ -658,14 +662,14 @@ int main(int argc, char **argv)
 			}
 		// } else if (!getMPDInfo(line, sizeof(line))) {
 		} else if (!getScriptStr("mediacontrol what", line, sizeof(line))) {
-			status += nextbg(1, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(1, status, sizeof(buffer) - (status - buffer), 1, 1);
 
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* CPU label */
-		status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+		status += nextbg(0, status, sizeof(buffer) - (status - buffer), 1, 1);
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"CPU ");
 
@@ -683,7 +687,7 @@ int main(int argc, char **argv)
 
 			/* Draw iowait + busy first */
 			used += vBar(cpuper[(i * 2)] + cpuper[(i * 2) + 1], 6, BAR_HEIGHT,
-							COLOR_RED, COLOR_GREY,
+							COLOR_RED, NULL,
 							line + used, sizeof(line) - used);
 
 			/* Draw just busy on top */
@@ -696,8 +700,9 @@ int main(int argc, char **argv)
 		}
 
 		/* MEM usage */
-		status += nextbg(4, status, sizeof(buffer) - (status - buffer));
-		vBar((i = getMEMUsage()), 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+		status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+		status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
+		vBar((i = getMEMUsage()), 6, BAR_HEIGHT, COLOR_WHITE, NULL, line, sizeof(line));
 		status += snprintf(status, sizeof(buffer) - (status - buffer),
 			"MEM %s^f6^", line);
 
@@ -705,8 +710,9 @@ int main(int argc, char **argv)
 		/* GPU */
 		i = getPercentage(GPU);
 		if (i >= 0) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
-			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
+			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, NULL, line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"GPU %s^f6^", line);
 		}
@@ -714,8 +720,9 @@ int main(int argc, char **argv)
 		/* vmem */
 		i = getPercentage(VMEM);
 		if (i >= 0) {
-			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
-			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, COLOR_GREY, line, sizeof(line));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
+			vBar(i, 6, BAR_HEIGHT, COLOR_WHITE, NULL, line, sizeof(line));
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"VMEM %s^f6^", line);
 		}
@@ -724,7 +731,8 @@ int main(int argc, char **argv)
 		/* Volume */
 #if 0
 		if (0 < getVolumeBar(line, sizeof(line))) {
-			status += nextbg(5, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
@@ -732,7 +740,8 @@ int main(int argc, char **argv)
 
 		/* Temperature */
 		if (0 < getTempBar(line, sizeof(line))) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"TEMP ");
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
@@ -741,28 +750,30 @@ int main(int argc, char **argv)
 
 		/* Wifi */
 		if (0 < getWifiBar(line, sizeof(line))) {
-			status += nextbg(4, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Battery */
 		if (0 < getBatteryBar(line, sizeof(line))) {
-			status += nextbg(0, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(4, status, sizeof(buffer) - (status - buffer), 1, 0);
+			status += nextbg(0, status, sizeof(buffer) - (status - buffer), 0, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Date */
 		if (!getDateTime("%a %b %d", line, sizeof(line))) {
-			status += nextbg(2, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(2, status, sizeof(buffer) - (status - buffer), 1, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
 
 		/* Time */
 		if (!getDateTime("%I:%M %p", line, sizeof(line))) {
-			status += nextbg(5, status, sizeof(buffer) - (status - buffer));
+			status += nextbg(5, status, sizeof(buffer) - (status - buffer), 1, 1);
 			status += snprintf(status, sizeof(buffer) - (status - buffer),
 				"%s", line);
 		}
